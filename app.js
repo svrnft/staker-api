@@ -1,24 +1,17 @@
 const
-  log = console.log.bind(console),
-  {inspect} = require("node:util"),
-  dir = value => log(inspect(value, false, 16, true), "\n"), sleep = async ms => new Promise(resolve => setTimeout(resolve, ms)),
-  path = require("path"),
-  lodash = require("lodash"),
+  path = require("path"), {inspect} = require("node:util"), {config} = require("./package.json"),
+  log = console.log.bind(console), dir = value => log(inspect(value, false, 16, true), "\n"),
+  lodash = require("lodash"), logger = require("morgan"),
   {MongoClient} = require("mongodb"),
-  express = require("express"),
-  bodyParser = require("body-parser"),
-  cookieParser = require("cookie-parser"),
-  logger = require("morgan"),
-  cors = require("cors"),
+  express = require("express"), bodyParser = require("body-parser"), cookieParser = require("cookie-parser"), cors = require("cors"),
   Agenda = require("agenda"), Agendash = require("agendash"),
-  {Address, Cell, beginCell, fromNano} = require("ton-core"),
-  {TonClient, HttpApi} = require("ton"),
-  {stake, withdraw, fromHttpTx, fromHttp} = require("staker-ton"),
+  {Address, Cell, beginCell, fromNano} = require("ton-core"), {TonClient, HttpApi} = require("ton"),
+  {fromHttpTx} = require("staker-ton"),
   {Member, Pool, Transaction} = require("staker-ton/types")
-  
+
 let
   app = express(),
-  mongo = new MongoClient("mongodb://localhost/staker", {useNewUrlParser: true, useUnifiedTopology: true}),
+  mongo = new MongoClient("mongodb://localhost/", {useNewUrlParser: true, useUnifiedTopology: true}),
   agenda = new Agenda({
     name: "pools",
     defaultConcurrency: 1,
@@ -58,9 +51,8 @@ let
   getTransactions = async ({attrs: {data}}) => {
     let
       pool = Pool.decode(data).right
-    console.time(`get-transactions(${pool.address.toShortString()})`)
     let
-      api = new HttpApi("https://mainnet.tonhubapi.com/jsonRPC"),
+      api = new HttpApi(config.endpoint),
       tx = await api.getTransactions(pool.address, {limit: 512}),
       known = await collection("transaction").find({id: {$in: tx.map(_ => _.transaction_id.hash)}}, {projection: {id: 1}}).toArray(),
       unknown = lodash.differenceWith(tx, known, (_, __) => _.transaction_id.hash === __.id)
@@ -68,16 +60,13 @@ let
       const transaction = fromHttpTx(tx)
       await collection("transaction").insertOne(Transaction.encode(transaction))
     }
-    // log("known", known.length, "unknown", unknown.length)
-    console.timeEnd(`get-transactions(${pool.address.toShortString()})`)
   },
   getParams = async ({attrs: {data}}) => {
     let
       pool = Pool.decode(data).right
-    console.time(`get-params(${pool.address.toShortString()})`)
     let
-      client = new TonClient({endpoint: "https://mainnet.tonhubapi.com/jsonRPC"}),
-      params = await client.callGetMethod(pool.address, "get_params")
+      client = new TonClient({endpoint: config.endpoint}),
+      params = await client.runMethod(pool.address, "get_params")
     await collection("pool").updateOne({address: pool.address.toRawString()}, {
       $set: {
         params: {
@@ -91,15 +80,13 @@ let
         }
       }
     })
-    console.timeEnd(`get-params(${pool.address.toShortString()})`)
   },
   getStakingStatus = async ({attrs: {data}}) => {
     let
       pool = Pool.decode(data).right
-    console.time(`get-staking-status(${pool.address.toShortString()})`)
     let
-      client = new TonClient({endpoint: "https://mainnet.tonhubapi.com/jsonRPC"}),
-      status = await client.callGetMethod(pool.address, "get_staking_status")
+      client = new TonClient({endpoint: config.endpoint}),
+      status = await client.runMethod(pool.address, "get_staking_status")
     await collection("pool").updateOne({address: pool.address.toRawString()}, {
       $set: {
         status: {
@@ -112,15 +99,13 @@ let
         }
       }
     })
-    console.timeEnd(`get-staking-status(${pool.address.toShortString()})`)
   },
   getPoolStatus = async ({attrs: {data}}) => {
     let
       pool = Pool.decode(data).right
-    console.time(`get-pool-status(${pool.address.toShortString()})`)
     let
-      client = new TonClient({endpoint: "https://mainnet.tonhubapi.com/jsonRPC"}),
-      balance = await client.callGetMethod(pool.address, "get_pool_status")
+      client = new TonClient({endpoint: config.endpoint}),
+      balance = await client.runMethod(pool.address, "get_pool_status")
     await collection("pool").updateOne({address: pool.address.toRawString()}, {
       $set: {
         balance: {
@@ -132,17 +117,13 @@ let
         }
       }
     })
-    console.timeEnd(`get-pool-status(${pool.address.toShortString()})`)
   }
 
 app
-  .use(bodyParser.urlencoded({extended: true}))
-  .use(bodyParser.json())
-  .use(cookieParser())
-  .use(logger("dev"))
-  .use(cors())
-  .use("/", express.static(path.resolve(__dirname, "../staker-app/dist")))
+  .use(bodyParser.urlencoded({extended: true})).use(bodyParser.json()).use(cookieParser()).use(logger("dev")).use(cors())
+  .use("/", express.static(path.resolve("../staker-app/dist")))
   .use("/agenda", Agendash(agenda))
+  .get(["/e", "/e/:pool", "/e/m/:pool"], async (req, res) => res.sendFile(path.resolve("../staker-app/dist/index.html")))
 
 app.get("/api/member/:pool/:address", async (req, res) => {
   const
@@ -153,7 +134,7 @@ app.get("/api/member/:pool/:address", async (req, res) => {
     pool = await collection("pool").findOne({address: poolAddress.toRawString()})
   if (! pool) return res.sendStatus(404)
   let
-    client = new TonClient({endpoint: "https://mainnet.tonhubapi.com/jsonRPC"}),
+    client = new TonClient({endpoint: config.endpoint}),
     {stack} = await client.callGetMethod(
       poolAddress,
       "get_member",
@@ -197,9 +178,9 @@ app.get("/api/pool", async (req, res) => {
   res.json(await mongo.db("staker").collection("pool").find({}).toArray())
 })
 
-app.get("/api/e/pool/:member", async (req, res) => {
+app.get("/api/pools/:member", async (req, res) => {
   let
-    client = new TonClient({endpoint: "https://mainnet.tonhubapi.com/jsonRPC"}),
+    client = new TonClient({endpoint: config.endpoint}),
     memberAddress = Address.from(req.params.member),
     actions = lodash.groupBy(await mongo.db("staker").collection("transaction").find({
       $or: [
@@ -216,7 +197,7 @@ app.get("/api/e/pool/:member", async (req, res) => {
     let ret
     while (! ret) {
       try {
-        ret = await client.callGetMethod(
+        ret = await client.runMethod(
           Address.from(pool.address),
           "get_member",
           [{type: "slice", cell: beginCell().storeAddress(memberAddress).asCell()}]
@@ -224,7 +205,7 @@ app.get("/api/e/pool/:member", async (req, res) => {
       }
       catch (error) {
         log("get_member", error.message)
-        await sleep(500)
+        await new Promise(resolve => setTimeout(resolve, 500))
       }
     }
     pool.member = Member.encode({
@@ -238,10 +219,6 @@ app.get("/api/e/pool/:member", async (req, res) => {
   }
   res.json(pools)
 })
-
-app.get("/e", async (req, res) => res.sendFile(path.resolve("../staker-app/dist/index.html")))
-app.get("/e/:pool", async (req, res) => res.sendFile(path.resolve("../staker-app/dist/index.html")))
-app.get("/e/m/:pool", async (req, res) => res.sendFile(path.resolve("../staker-app/dist/index.html")))
 
 process.on("SIGTERM", stop)
 process.on("SIGINT", stop)

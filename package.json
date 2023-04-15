@@ -1,6 +1,9 @@
 {
   "name": "staker-api",
   "version": "1.0.0",
+  "config": {
+    "endpoint": "https://mainnet.tonhubapi.com/jsonRPC"
+  },
   "private": true,
   "description": "",
   "main": "app.js",

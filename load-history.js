@@ -1,10 +1,8 @@
 const
-  log = console.log.bind(console), {inspect} = require("node:util"), dir = value => log(inspect(value, false, 16, true), "\n"),
-  {Address} = require("ton-core"), {HttpApi} = require("ton"),
+  {inspect} = require("node:util"), log = console.log.bind(console), dir = value => log(inspect(value, false, 16, true), "\n"),
+  {Address} = require("ton-core"), {HttpApi} = require("ton"), api = new HttpApi(require("./package.json").config.endpoint),
   types = require("staker-ton/types"), {fromHttpTx} = require("staker-ton"),
-  api = new HttpApi("https://mainnet.tonhubapi.com/jsonRPC"),
-  sleep = async ms => new Promise(resolve => setTimeout(resolve, ms)),
-  {MongoClient} = require("mongodb"), mongo = new MongoClient("mongodb://localhost/staker", {useNewUrlParser: true, useUnifiedTopology: true}),
+  {MongoClient} = require("mongodb"), mongo = new MongoClient("mongodb://localhost/", {useNewUrlParser: true, useUnifiedTopology: true}),
   main = async () => {
     await mongo.connect()
     let
@@ -21,7 +19,7 @@ const
         batch = await api.getTransactions(target, {limit, lt: cursor.lt, hash: cursor.hash, inclusive: false})
       } catch (error) {
         log("getTransactions error", error.message)
-        await sleep(1000)
+        await new Promise(resolve => setTimeout(resolve, 1000))
         continue
       }
       for (tx of batch) {
