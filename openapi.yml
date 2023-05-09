@@ -1,0 +1,208 @@
+openapi: 3.0.0
+info:
+  title: Staker API
+  description: |-
+    This is a $TAKER Public API Service Description.
+    
+    In the three months of heavy Research and Development.
+
+    After only few hours of edits (after it was requested).
+    
+    In the five weeks of promises of "almost ready".....because of as it turned out documentation (THIS FILE) is required.
+
+    After many tries and fails and finally, without scaffolding, described MANUALLY.
+
+    Route feature requests and bugs directly to [developer](https://t.me/commonbabylightmyfire)
+  version: 23.05.09
+servers:
+  - url: https://staker.ton.shiksha/api/
+tags:
+  - name: POOL
+    description: Pools analysis
+  - name: NOMINATOR
+    description: Accounts with stake
+components:
+  schemas:
+    Message:
+      type: object
+      properties:
+        source:
+          type: string
+        destination:
+          type: string
+        lt: 
+          type: string
+        value: 
+          type: string
+        fee: 
+          type: string
+        body:
+          type: object
+          properties:
+            type:
+              type: string
+            data:
+              type: string
+    Transaction:
+      type: object
+      properties:
+        id: 
+          type: string
+        lt: 
+          type: string
+        time:
+          type: integer
+        messages:
+          type: array
+          items:
+            $ref: "#/components/schemas/Message"
+        fee:
+          type: object
+          properties:
+            value: 
+              type: string
+            storage: 
+              type: string
+            other: 
+              type: string
+    Member:
+      type: object
+      properties:
+        address:
+          type: string
+        pool: 
+          type: string
+        balance: 
+          type: string
+        pendingDeposit: 
+          type: string
+        pendingWithdraw: 
+          type: string
+        withdraw: 
+          type: string
+    Members:
+      type: array
+      items:
+        $ref: "#/components/schemas/Member"
+    Pool:
+      type: object
+      properties:
+        address:
+          type: string
+        name:
+          type: string
+        params:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            updatesEnabled: 
+              type: boolean
+            minStake: 
+              type: string
+            depositFee: 
+              type: string
+            withdrawFee: 
+              type: string
+            poolFee: 
+              type: string
+            receiptPrice: 
+              type: string
+        status:
+          type: object
+          properties:
+            proxySakeAt:
+              type: integer
+            proxyStakeUntil:
+              type: integer
+            proxyStakeSent: 
+              type: string
+            querySent:
+              type: boolean
+            unlocked:
+              type: boolean
+            ctxLocked:
+              type: boolean
+        balance:
+          type: object
+          properties:
+            value: 
+              type: string
+            sent: 
+              type: string
+            pendingDeposits: 
+              type: string
+            pendingWithdraw: 
+              type: string
+            withdraw: 
+              type: string
+    Pools:
+      type: array
+      items:
+        $ref: "#/components/schemas/Pool"
+paths:
+  /pool:
+    get:
+      tags:
+        - POOL
+      summary: List known Pools
+      operationId: list-pools
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pools"
+  /pool/{address}:
+    get:
+      tags:
+        - POOL
+      summary: Find Pool by it`s Address
+      operationId: get-pool
+      parameters:
+        - name: address
+          in: path
+          description: Pool Address
+          required: true
+          schema:
+            type: string
+      responses:
+        default:
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Pool"
+  /member/{pool}/{address}:
+    get:
+      tags: 
+        - POOL
+        - NOMINATOR
+      summary: Aggregate Pool and Nominator Balances and Actions History
+      operationId: member-of-pool
+      parameters:
+        - name: pool
+          in: path
+          description: Pool address
+          required: true
+          schema:
+            type: string
+        - name: address
+          in: path
+          description: Nominator's Wallet Address
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pool:
+                    $ref: "#/components/schemas/Pool"
+                  member:
+                    $ref: "#/components/schemas/Member"

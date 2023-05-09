@@ -1,5 +1,5 @@
 const
-  path = require("path"), {inspect} = require("node:util"), {config} = require("./package.json"),
+  path = require("path"), fs = require("fs"), {inspect} = require("node:util"), {config} = require("./package.json"),
   log = console.log.bind(console), dir = value => log(inspect(value, false, 16, true), "\n"),
   lodash = require("lodash"), logger = require("morgan"),
   {MongoClient} = require("mongodb"),
@@ -7,17 +7,18 @@ const
   Agenda = require("agenda"), Agendash = require("agendash"),
   {Address, Cell, beginCell, fromNano} = require("ton-core"), {TonClient, HttpApi} = require("ton"),
   {fromHttpTx} = require("staker-ton"),
-  {Member, Pool, Transaction} = require("staker-ton/types")
+  {Member, Pool, Transaction} = require("staker-ton/types"),
+  yaml = require("yaml"), SwaggerUi = require("swagger-ui-express")
 
 let
   app = express(),
-  mongo = new MongoClient("mongodb://localhost/", {useNewUrlParser: true, useUnifiedTopology: true}),
+  mongo = new MongoClient("mongodb://127.0.0.1/", {useNewUrlParser: true, useUnifiedTopology: true}),
   agenda = new Agenda({
     name: "pools",
     defaultConcurrency: 1,
     maxConcurrency: 1,
     ensureIndex: true,
-    db: {address: "mongodb://localhost/staker", collection: "tasks"}
+    db: {address: "mongodb://127.0.0.1/staker", collection: "tasks"}
   }), db, collection = name => db.collection(name),
   start = async () => {
     db = (await mongo.connect()).db("staker")
@@ -123,6 +124,18 @@ app
   .use(bodyParser.urlencoded({extended: true})).use(bodyParser.json()).use(cookieParser()).use(logger("dev")).use(cors())
   .use("/", express.static(path.resolve("../staker-app/dist")))
   .use("/agenda", Agendash(agenda))
+  .use("/doc", SwaggerUi.serve, SwaggerUi.setup(yaml.parse(fs.readFileSync("./openapi.yml").toString()), {
+    swaggerOptions: {
+      displayOperationId: false,
+      defaultModelsExpandDepth: 3,
+      defaultModelExpandDepth: 3,
+      defaultModelRendering: "model",
+      docExpansion: "full",
+      filter: false,
+      tryItOutEnabled: true
+    },
+    customCssUrl: ["./swagger.css"]
+  }))
   .get(["/e", "/e/:pool", "/e/m/:pool"], async (req, res) => res.sendFile(path.resolve("../staker-app/dist/index.html")))
 
 app.get("/api/member/:pool/:address", async (req, res) => {
