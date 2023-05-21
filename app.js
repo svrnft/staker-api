@@ -122,19 +122,19 @@ let
 
 app
   .use(bodyParser.urlencoded({extended: true})).use(bodyParser.json()).use(cookieParser()).use(logger("dev")).use(cors())
-  .use("/", express.static(path.resolve("../staker-app/dist")))
+  //.use("/", express.static(path.resolve("../staker-app/dist")))
   .use("/agenda", Agendash(agenda))
   .use("/doc", SwaggerUi.serve, SwaggerUi.setup(yaml.parse(fs.readFileSync("./openapi.yml").toString()), {
     swaggerOptions: {
       displayOperationId: false,
-      defaultModelsExpandDepth: 3,
-      defaultModelExpandDepth: 3,
+      defaultModelsExpandDepth: 4,
+      defaultModelExpandDepth: 4,
       defaultModelRendering: "model",
       docExpansion: "full",
       filter: false,
       tryItOutEnabled: true
     },
-    customCssUrl: ["./swagger.css"]
+    customCssUrl: ["../swagger.css"]
   }))
   .get(["/e", "/e/:pool", "/e/m/:pool"], async (req, res) => res.sendFile(path.resolve("../staker-app/dist/index.html")))
 
@@ -189,6 +189,10 @@ app.get("/api/pool/:address", async (req, res) => {
 
 app.get("/api/pool", async (req, res) => {
   res.json(await mongo.db("staker").collection("pool").find({}).toArray())
+})
+
+app.get("/api/health", async (req, res) => {
+  res.json({ok: 1})
 })
 
 app.get("/api/pools/:member", async (req, res) => {
