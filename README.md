@@ -55,6 +55,7 @@ https://staker.ton.shiksha/dump.gz
 You need this once to start and continiously running from current point. Restore database with
 
 ```
+$ wget https://staker.ton.shiksha/dump.gz
 $ mongorestore --db staker dump.gz
 ```
 
