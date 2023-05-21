@@ -65,6 +65,7 @@ Checkout `staker-api` repo to projects folder (~ by default) and run it (as a se
 ```
 $ git clone https://github.com/tonshebang/staker-api.git
 $ cd staker-api
+$ npm install
 $ node app.js
 ```
 
