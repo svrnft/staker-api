@@ -72,6 +72,14 @@ THATS IT. How to run nvm managed NodeJS scripts as a SystemV service please chec
 
 https://gist.github.com/joepie91/73ce30dd258296bd24af23e9c5f761aa
 
+### Healthckeck route
+
+https://your-api-instance/api/health
+
+Will respond with `200 OK` and JSON `{"ok": 1}` while API service is running
+
+#### Feedback and Support
+
 Feel free to ask anything from
 
 https://t.me/commonbabylightmyfire
